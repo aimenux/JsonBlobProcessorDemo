@@ -49,25 +49,26 @@ namespace App
             var processors = serviceProvider.GetServices<IProcessor>();
             var azureSearchClient = serviceProvider.GetRequiredService<IAzureSearchClient<PersonIndex>>();
 
-            var stopWatch = new Stopwatch();
 
             foreach (var processor in processors)
             {
                 await azureSearchClient.DeleteIndexAndDocumentsAsync();
                 await azureSearchClient.CreateIndexWhenNotExistsAsync();
 
-                logger.LogInformation("Running strategy {strategy}", processor.Name);
+                logger.LogInformation("Running strategy '{strategy}'", processor.Name);
+
+                var stopWatch = new Stopwatch();
 
                 stopWatch.Start();
                 await processor.LaunchAsync();
                 stopWatch.Stop();
 
-                logger.LogInformation("Elapsed time for {processor} is {duration}", processor.Name, stopWatch.Elapsed.ToString("g"));
+                logger.LogInformation("Elapsed time for '{processor}' is '{duration}'", processor.Name, stopWatch.Elapsed.ToString("g"));
 
-                await Task.Delay(TimeSpan.FromSeconds(5));
+                await Task.Delay(TimeSpan.FromSeconds(10));
                 var count = await azureSearchClient.CountAsync();
 
-                logger.LogInformation("Found {count} items in azure search storage", count);
+                logger.LogInformation("Found '{count}' items in azure search storage", count);
             }
 
             Console.WriteLine("Press any key to exit !");
