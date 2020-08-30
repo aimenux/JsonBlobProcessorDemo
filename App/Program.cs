@@ -28,9 +28,10 @@ namespace App
 
             var services = new ServiceCollection();
             services.Configure<Settings>(configuration.GetSection(nameof(Settings)));
-            services.AddSingleton(typeof(IAzureSearchClient<>), typeof(AzureSearchClient<>));
             services.AddSingleton<IAzureBlobClient, AzureBlobClient>();
             services.AddSingleton<IProcessor, ChannelProcessor>();
+            services.AddSingleton<IProcessor, ChannelExtensionsProcessor>();
+            services.AddSingleton(typeof(IAzureSearchClient<>), typeof(AzureSearchClient<>));
 
             services.AddLogging(loggingBuilder =>
             {
@@ -48,24 +49,26 @@ namespace App
             var processors = serviceProvider.GetServices<IProcessor>();
             var azureSearchClient = serviceProvider.GetRequiredService<IAzureSearchClient<PersonIndex>>();
 
-            await azureSearchClient.DeleteIndexAndDocumentsAsync();
-            await azureSearchClient.CreateIndexWhenNotExistsAsync();
-
             var stopWatch = new Stopwatch();
 
             foreach (var processor in processors)
             {
+                await azureSearchClient.DeleteIndexAndDocumentsAsync();
+                await azureSearchClient.CreateIndexWhenNotExistsAsync();
+
+                logger.LogInformation("Running strategy {strategy}", processor.Name);
+
                 stopWatch.Start();
                 await processor.LaunchAsync();
                 stopWatch.Stop();
 
-                logger.LogInformation("Elapsed time for {processor} is {duration}", processor.GetType().Name, stopWatch.Elapsed.ToString("g"));
+                logger.LogInformation("Elapsed time for {processor} is {duration}", processor.Name, stopWatch.Elapsed.ToString("g"));
+
+                await Task.Delay(TimeSpan.FromSeconds(5));
+                var count = await azureSearchClient.CountAsync();
+
+                logger.LogInformation("Found {count} items in azure search storage", count);
             }
-
-            await Task.Delay(TimeSpan.FromSeconds(5));
-            var count = await azureSearchClient.CountAsync();
-
-            logger.LogInformation("Found {count} items in azure search storage", count);
 
             Console.WriteLine("Press any key to exit !");
             Console.ReadKey();

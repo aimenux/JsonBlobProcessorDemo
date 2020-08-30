@@ -13,7 +13,8 @@ namespace App.Strategies
 {
     public class ChannelProcessor : IProcessor
     {
-        private const int Size = 32_000;
+        private const int BatchSize = 32_000;
+        private const int ChannelSize = 5_000;
         private readonly IAzureBlobClient _azureBlobClient;
         private readonly IAzureSearchClient<PersonIndex> _azureSearchClient;
         private readonly ILogger _logger;
@@ -25,9 +26,11 @@ namespace App.Strategies
             _logger = logger;
         }
 
+        public string Name => GetType().Name;
+
         public async Task LaunchAsync()
         {
-            var options = new BoundedChannelOptions(Size)
+            var options = new BoundedChannelOptions(ChannelSize)
             {
                 SingleReader = true,
                 SingleWriter = true,
@@ -67,7 +70,7 @@ namespace App.Strategies
                         searchablePersons.Add(new SearchablePerson(person));
                     }
 
-                    foreach (var searchablePersonsBatch in searchablePersons.Batch(Size))
+                    foreach (var searchablePersonsBatch in searchablePersons.Batch(BatchSize))
                     {
                         await _azureSearchClient.SaveAsync(searchablePersonsBatch);
                     }
